@@ -1,5 +1,5 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual C++ Express 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "civetweb", "civetweb\civetweb.vcxproj", "{E23B0040-F485-43D6-AA24-B34F9FED8484}"
 EndProject

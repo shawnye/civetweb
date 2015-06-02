@@ -298,11 +298,13 @@ static const char *get_option(char **options, const char *option_name)
 	int i = 0;
 	const char *opt_value = NULL;
 
-	/* TODO: options should be an array of key-value-pairs, like
-	   struct {const char * key, const char * value} options[]
-	   but it currently is an array with
-	   options[2*i] = key, options[2*i + 1] = value
-	*/
+	/* TODO (low, api makeover): options should be an array of key-value-pairs,
+	 * like 
+     *     struct {const char * key, const char * value} options[]
+	 * but it currently is an array with
+	 *     options[2*i] = key, options[2*i + 1] = value
+     * (probably with a MG_LEGACY_INTERFACE definition)
+	 */
 	while (options[2 * i] != NULL) {
 		if (strcmp(options[2 * i], option_name) == 0) {
 			opt_value = options[2 * i + 1];
@@ -355,7 +357,7 @@ static int set_option(char **options, const char *name, const char *value)
 		break;
 	case CONFIG_TYPE_FILE:
 	case CONFIG_TYPE_DIRECTORY:
-		/* TODO: check this option when it is set, instead of calling
+		/* TODO (low): check this option when it is set, instead of calling
 		 * verify_existence later */
 		break;
 	case CONFIG_TYPE_EXT_PATTERN:
@@ -1172,8 +1174,9 @@ static int get_password(const char *user,
 
 	unsigned char mem[4096], *p;
 	DLGTEMPLATE *dia = (DLGTEMPLATE *)mem;
-	int ok, y;
-	struct tstring_input_buf dlgprms = {passwd_len, passwd};
+	int ok;
+	short y;
+	struct tstring_input_buf dlgprms;
 
 	static struct {
 		DLGTEMPLATE template; /* 18 bytes */
@@ -1194,6 +1197,9 @@ static int get_password(const char *user,
 	                   L"",
 	                   8,
 	                   L"Tahoma"};
+
+	dlgprms.buffer = passwd;
+	dlgprms.buflen = passwd_len;
 
 	assert((user != NULL) && (realm != NULL) && (passwd != NULL));
 
@@ -1611,7 +1617,7 @@ static void change_password_file()
 	char strbuf[256], u[256], d[256];
 	HWND hDlg = NULL;
 	FILE *f;
-	int y, nelems;
+	short y, nelems;
 	unsigned char mem[4096], *p;
 	DLGTEMPLATE *dia = (DLGTEMPLATE *)mem;
 	const char *domain = mg_get_option(g_ctx, "authentication_domain");
@@ -1732,7 +1738,7 @@ static void change_password_file()
 		}
 		fclose(f);
 
-		y = (WORD)((nelems + 1) * HEIGHT + 10);
+		y = (nelems + 1) * HEIGHT + 10;
 		add_control(&p,
 		            dia,
 		            0x80,
@@ -1766,7 +1772,7 @@ static void change_password_file()
 		            12,
 		            domain);
 
-		y = (WORD)((nelems + 2) * HEIGHT + 10);
+		y = (nelems + 2) * HEIGHT + 10;
 		add_control(&p,
 		            dia,
 		            0x80,
@@ -1807,11 +1813,14 @@ static void change_password_file()
 static int manage_service(int action)
 {
 	static const char *service_name =
-	    "Civetweb"; /* TODO: check using server_name instead of service_name */
+	    "Civetweb"; /* TODO (mid): check using server_name instead of 
+                     * service_name */
 	SC_HANDLE hSCM = NULL, hService = NULL;
-	SERVICE_DESCRIPTION descr = {g_server_name};
+	SERVICE_DESCRIPTION descr;
 	char path[PATH_MAX + 20] = ""; /* Path to executable plus magic argument */
 	int success = 1;
+
+	descr.lpDescription = g_server_name;
 
 	if ((hSCM = OpenSCManager(NULL,
 	                          NULL,
@@ -1866,10 +1875,13 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	static SERVICE_TABLE_ENTRY service_table[2];
 	int service_installed;
-	char buf[200], *service_argv[] = {__argv[0], NULL};
+	char buf[200], *service_argv[2];
 	POINT pt;
 	HMENU hMenu;
 	static UINT s_uTaskbarRestart; /* for taskbar creation */
+
+	service_argv[0] = __argv[0];
+	service_argv[1] = NULL;
 
 	memset(service_table, 0, sizeof(service_table));
 	service_table[0].lpServiceName = g_server_name;
@@ -2062,9 +2074,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR cmdline, int show)
 	return (int)msg.wParam;
 }
 
-#if defined(CONSOLE)
-void main(void) { WinMain(0, 0, 0, 0); }
-#endif
+int main(void) { return WinMain(0, 0, 0, 0); }
 
 #elif defined(USE_COCOA)
 #import <Cocoa/Cocoa.h>

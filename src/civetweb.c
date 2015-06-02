@@ -59,6 +59,14 @@
 #pragma warning(disable : 4127)
 /* non-constant aggregate initializer: issued due to missing C99 support */
 #pragma warning(disable : 4204)
+/* padding added after data member */
+#pragma warning(disable : 4820)
+/* not defined as a preprocessor macro, replacing with '0' for '#if/#elif' */
+#pragma warning(disable : 4668)
+/* no function prototype given: converting '()' to '(void)' */
+#pragma warning(disable : 4255)
+/* function has been selected for automatic inline expansion */
+#pragma warning(disable : 4711)
 #endif
 
 /* This code uses static_assert to check some conditions.
@@ -171,6 +179,9 @@ int clock_gettime(int clk_id, struct timespec *t)
 
 #ifndef MAX_WORKER_THREADS
 #define MAX_WORKER_THREADS (1024 * 64)
+#endif
+#ifndef SOCKET_TIMEOUT_QUANTUM
+#define SOCKET_TIMEOUT_QUANTUM (10000)
 #endif
 
 mg_static_assert(MAX_WORKER_THREADS >= 1,
@@ -878,6 +889,9 @@ enum {
 	REWRITE,
 	HIDE_FILES,
 	REQUEST_TIMEOUT,
+#if defined(USE_WEBSOCKET)
+	WEBSOCKET_TIMEOUT,
+#endif
 	DECODE_URL,
 
 #if defined(USE_LUA)
@@ -930,6 +944,9 @@ static struct mg_option config_options[] = {
     {"url_rewrite_patterns", CONFIG_TYPE_STRING, NULL},
     {"hide_files_patterns", CONFIG_TYPE_EXT_PATTERN, NULL},
     {"request_timeout_ms", CONFIG_TYPE_NUMBER, "30000"},
+#if defined(USE_WEBSOCKET)
+    {"websocket_timeout_ms", CONFIG_TYPE_NUMBER, "30000"},
+#endif
     {"decode_url", CONFIG_TYPE_BOOLEAN, "yes"},
 
 #if defined(USE_LUA)
@@ -1136,7 +1153,8 @@ static void mg_set_thread_name(const char *name)
 {
 	char threadName[16]; /* Max. thread length in Linux/OSX/.. */
 
-	/* TODO: use strcpy and strcat instad of snprintf, use server name, don't
+	/* TODO (low): use strcpy and strcat instad of snprintf, use server name,
+	 * don't
 	 * return */
 	if (snprintf(threadName, sizeof(threadName), "civetweb-%s", name) < 0)
 		return;
@@ -1151,7 +1169,7 @@ static void mg_set_thread_name(const char *name)
 		THREADNAME_INFO info;
 		info.dwType = 0x1000;
 		info.szName = threadName;
-		info.dwThreadID = -1;
+		info.dwThreadID = ~0U;
 		info.dwFlags = 0;
 
 		RaiseException(0x406D1388,
@@ -1474,20 +1492,6 @@ static void sockaddr_to_string(char *buf, size_t len, const union usa *usa)
 		            NI_NUMERICHOST);
 	}
 #endif
-
-#if 0
-    /* TODO: test alternative code, remove old code */
-#if defined(USE_IPV6)
-    mg_inet_ntop(usa->sa.sa_family, usa->sa.sa_family == AF_INET ?
-        (void *) &usa->sin.sin_addr :
-    (void *) &usa->sin6.sin6_addr, buf, len);
-#elif defined(_WIN32)
-    /* Only Windows Vista (and newer) have inet_ntop() */
-    mg_strlcpy(buf, inet_ntoa(usa->sin.sin_addr), len);
-#else
-    inet_ntop(usa->sa.sa_family, (void *) &usa->sin.sin_addr, buf, (socklen_t)len);
-#endif
-#endif
 }
 
 /* Convert time_t to a string. According to RFC2616, Sec 14.18, this must be
@@ -1597,8 +1601,9 @@ static char *skip_quoted(char **buf,
 	if (end_word > begin_word) {
 		p = end_word - 1;
 		while (*p == quotechar) {
-			/* TODO (bel): it seems this code is never reached, so quotechar is
-			 * actually not needed - check if this code may be droped */
+			/* TODO (bel, low): it seems this code is never reached, so
+			 * quotechar is actually not needed - check if this code may be
+			 * droped */
 
 			/* If there is anything beyond end_word, copy it */
 			if (*end_word == '\0') {
@@ -2524,7 +2529,7 @@ static int poll(struct pollfd *pfd, unsigned int n, int milliseconds)
 }
 #endif /* HAVE_POLL */
 
-static void set_close_on_exec(int sock,
+static void set_close_on_exec(SOCKET sock,
                               struct mg_connection *conn /* may be null */)
 {
 	(void)conn; /* Unused. */
@@ -2647,7 +2652,7 @@ static pid_t spawn_process(struct mg_connection *conn,
 	memset(&si, 0, sizeof(si));
 	si.cb = sizeof(si);
 
-	/* TODO(lsm): redirect CGI errors to the error log file */
+	/* TODO(lsm, mid): redirect CGI errors to the error log file */
 	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 	si.wShowWindow = SW_HIDE;
 
@@ -2756,7 +2761,7 @@ mg_stat(struct mg_connection *conn, const char *path, struct file *filep)
 	return filep->membuf != NULL || filep->modification_time != (time_t)0;
 }
 
-static void set_close_on_exec(int fd,
+static void set_close_on_exec(SOCKET fd,
                               struct mg_connection *conn /* may be null */)
 {
 	if (fcntl(fd, F_SETFD, FD_CLOEXEC) != 0) {
@@ -2933,7 +2938,12 @@ push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf, int64_t len)
 			if (ferror(fp))
 				n = -1;
 		} else {
-			n = (int)send(sock, buf + sent, (size_t)k, MSG_NOSIGNAL);
+#ifdef _WIN32
+			typedef int len_t;
+#else
+			typedef size_t len_t;
+#endif
+			n = (int)send(sock, buf + sent, (len_t)k, MSG_NOSIGNAL);
 		}
 
 		if (n <= 0)
@@ -2947,18 +2957,15 @@ push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf, int64_t len)
 
 /* Read from IO channel - opened file descriptor, socket, or SSL descriptor.
  * Return negative value on error, or number of bytes read on success. */
-static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len)
+static int
+pull(FILE *fp, struct mg_connection *conn, char *buf, int len, double timeout)
 {
 	int nread;
-	double timeout = -1;
 	struct timespec start, now;
 
 	memset(&start, 0, sizeof(start));
 	memset(&now, 0, sizeof(now));
 
-	if (conn->ctx->config[REQUEST_TIMEOUT]) {
-		timeout = atoi(conn->ctx->config[REQUEST_TIMEOUT]) / 1000.0;
-	}
 	if (timeout > 0) {
 		clock_gettime(CLOCK_MONOTONIC, &start);
 	}
@@ -2975,7 +2982,12 @@ static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len)
 			nread = SSL_read(conn->ssl, buf, len);
 #endif
 		} else {
-			nread = (int)recv(conn->client.sock, buf, (size_t)len, 0);
+#ifdef _WIN32
+			typedef int len_t;
+#else
+			typedef size_t len_t;
+#endif
+			nread = (int)recv(conn->client.sock, buf, (len_t)len, 0);
 		}
 		if (conn->ctx->stop_flag) {
 			return -1;
@@ -2995,9 +3007,14 @@ static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len)
 static int pull_all(FILE *fp, struct mg_connection *conn, char *buf, int len)
 {
 	int n, nread = 0;
+	double timeout = -1.0;
+
+	if (conn->ctx->config[REQUEST_TIMEOUT]) {
+		timeout = atoi(conn->ctx->config[REQUEST_TIMEOUT]) / 1000.0;
+	}
 
 	while (len > 0 && conn->ctx->stop_flag == 0) {
-		n = pull(fp, conn, buf + nread, len);
+		n = pull(fp, conn, buf + nread, len, timeout);
 		if (n < 0) {
 			nread = n; /* Propagate the error */
 			break;
@@ -4565,6 +4582,38 @@ int mg_modify_passwords_file(const char *fname,
 	return 1;
 }
 
+
+static int is_valid_port(unsigned int port) { return port < 0xffff; }
+
+
+static int mg_inet_pton(int af, const char *src, void *dst, size_t dstlen)
+{
+	struct addrinfo hints, *res, *ressave;
+	int ret = 0;
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = af;
+
+	if (getaddrinfo(src, NULL, &hints, &res) != 0) {
+		/* bad src string or bad address family */
+		return 0;
+	}
+
+	ressave = res;
+
+	while (res) {
+		if (dstlen >= res->ai_addrlen) {
+			memcpy(dst, res->ai_addr, res->ai_addrlen);
+			ret = 1;
+		}
+		res = res->ai_next;
+	}
+
+	freeaddrinfo(ressave);
+	return ret;
+}
+
+
 static SOCKET conn2(struct mg_context *ctx /* may be null */,
                     const char *host,
                     int port,
@@ -4572,9 +4621,10 @@ static SOCKET conn2(struct mg_context *ctx /* may be null */,
                     char *ebuf,
                     size_t ebuf_len)
 {
-	struct sockaddr_in sain;
-	struct hostent *he;
+	union usa sa;
 	SOCKET sock = INVALID_SOCKET;
+
+	memset(&sa, 0, sizeof(sa));
 
 	if (ebuf_len > 0) {
 		*ebuf = 0;
@@ -4582,31 +4632,47 @@ static SOCKET conn2(struct mg_context *ctx /* may be null */,
 
 	if (host == NULL) {
 		snprintf(ebuf, ebuf_len, "%s", "NULL host");
-	} else if (use_ssl && SSLv23_client_method == NULL) {
-		snprintf(ebuf, ebuf_len, "%s", "SSL is not initialized");
-		/* TODO(lsm): use something threadsafe instead of gethostbyname() */
-	} else if ((he = gethostbyname(host)) == NULL) {
-		snprintf(
-		    ebuf, ebuf_len, "gethostbyname(%s): %s", host, strerror(ERRNO));
-	} else if ((sock = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-		snprintf(ebuf, ebuf_len, "socket(): %s", strerror(ERRNO));
-	} else {
-		set_close_on_exec(sock, fc(ctx));
-		memset(&sain, '\0', sizeof(sain));
-		sain.sin_family = AF_INET;
-		sain.sin_port = htons((uint16_t)port);
-		sain.sin_addr = *(struct in_addr *)(void *)he->h_addr_list[0];
-		if (connect(sock, (struct sockaddr *)&sain, sizeof(sain)) != 0) {
-			snprintf(ebuf,
-			         ebuf_len,
-			         "connect(%s:%d): %s",
-			         host,
-			         port,
-			         strerror(ERRNO));
-			closesocket(sock);
-			sock = INVALID_SOCKET;
-		}
+		return INVALID_SOCKET;
 	}
+
+	if (port < 0 || !is_valid_port((unsigned)port)) {
+		snprintf(ebuf, ebuf_len, "%s", "invalid port");
+		return INVALID_SOCKET;
+	}
+
+	if (use_ssl && (SSLv23_client_method == NULL)) {
+		snprintf(ebuf, ebuf_len, "%s", "SSL is not initialized");
+		return INVALID_SOCKET;
+	}
+
+	if (mg_inet_pton(AF_INET, host, &sa.sin, sizeof(sa.sin))) {
+		sa.sin.sin_port = htons((uint16_t)port);
+#ifdef USE_IPV6
+	} else if (mg_inet_pton(AF_INET6, host, &sa.sin6, sizeof(sa.sin6))) {
+		sa.sin6.sin6_port = htons((uint16_t)port);
+#endif
+	} else {
+		snprintf(ebuf, ebuf_len, "%s", "host not found");
+		return INVALID_SOCKET;
+	}
+
+	sock = socket(PF_INET, SOCK_STREAM, 0);
+
+	if (sock == INVALID_SOCKET) {
+		snprintf(ebuf, ebuf_len, "socket(): %s", strerror(ERRNO));
+		return INVALID_SOCKET;
+	}
+
+	set_close_on_exec(sock, fc(ctx));
+
+	/* TODO(mid): IPV6 */
+	if (connect(sock, (struct sockaddr *)&sa.sin, sizeof(sa.sin)) != 0) {
+		snprintf(
+		    ebuf, ebuf_len, "connect(%s:%d): %s", host, port, strerror(ERRNO));
+		closesocket(sock);
+		sock = INVALID_SOCKET;
+	}
+
 	return sock;
 }
 
@@ -4863,7 +4929,7 @@ static void dir_scan_callback(struct de *de, void *data)
 		    dsd->entries, dsd->arr_size * sizeof(dsd->entries[0]));
 	}
 	if (dsd->entries == NULL) {
-		/* TODO(lsm): propagate an error to the caller */
+		/* TODO(lsm, low): propagate an error to the caller */
 		dsd->num_entries = 0;
 	} else {
 		dsd->entries[dsd->num_entries].file_name = mg_strdup(de->file_name);
@@ -5282,12 +5348,14 @@ static int read_request(
 	}
 
 	request_len = get_request_len(buf, *nread);
-	while ((conn->ctx->stop_flag == 0) && (*nread < bufsiz) &&
-	       (request_len == 0) &&
-	       ((mg_difftimespec(&last_action_time, &(conn->req_time)) <=
-	         request_timeout) ||
-	        (request_timeout < 0)) &&
-	       ((n = pull(fp, conn, buf + *nread, bufsiz - *nread)) > 0)) {
+	while (
+	    (conn->ctx->stop_flag == 0) && (*nread < bufsiz) &&
+	    (request_len == 0) &&
+	    ((mg_difftimespec(&last_action_time, &(conn->req_time)) <=
+	      request_timeout) ||
+	     (request_timeout < 0)) &&
+	    ((n = pull(fp, conn, buf + *nread, bufsiz - *nread, request_timeout)) >
+	     0)) {
 		*nread += n;
 		/* assert(*nread <= bufsiz); */
 		if (*nread > bufsiz)
@@ -5374,9 +5442,14 @@ forward_body_data(struct mg_connection *conn, FILE *fp, SOCKET sock, SSL *ssl)
 	char buf[MG_BUF_LEN];
 	int to_read, nread, success = 0;
 	int64_t buffered_len;
+	double timeout = -1.0;
 
-	if (!conn)
+	if (!conn) {
 		return 0;
+	}
+	if (conn->ctx->config[REQUEST_TIMEOUT]) {
+		timeout = atoi(conn->ctx->config[REQUEST_TIMEOUT]) / 1000.0;
+	}
 
 	expect = mg_get_header(conn, "Expect");
 	/* assert(fp != NULL); */
@@ -5428,7 +5501,7 @@ forward_body_data(struct mg_connection *conn, FILE *fp, SOCKET sock, SSL *ssl)
 			if ((int64_t)to_read > conn->content_len - conn->consumed_content) {
 				to_read = (int)(conn->content_len - conn->consumed_content);
 			}
-			nread = pull(NULL, conn, buf, to_read);
+			nread = pull(NULL, conn, buf, to_read, timeout);
 			if (nread <= 0 || push(fp, sock, ssl, buf, nread) != nread) {
 				break;
 			}
@@ -5441,7 +5514,9 @@ forward_body_data(struct mg_connection *conn, FILE *fp, SOCKET sock, SSL *ssl)
 
 		/* Each error code path in this function must send an error */
 		if (!success) {
-			/* TODO: Maybe some data has already been sent. */
+			/* NOTE: Maybe some data has already been sent. */
+			/* TODO (low): If some data has been sent, a correct error
+			 * reply can no longer be sent, so just close the connection */
 			send_http_error(conn, 500, "%s", "");
 		}
 	}
@@ -5537,7 +5612,7 @@ static void prepare_cgi_environment(struct mg_connection *conn,
 	addenv(blk, "%s", "SERVER_PROTOCOL=HTTP/1.1");
 	addenv(blk, "%s", "REDIRECT_STATUS=200"); /* For PHP */
 
-	/* TODO(lsm): fix this for IPv6 case */
+	/* TODO(lsm, high): fix this for IPv6 case */
 	addenv(blk, "SERVER_PORT=%d", ntohs(conn->client.lsa.sin.sin_port));
 
 	addenv(blk, "REQUEST_METHOD=%s", conn->request_info.request_method);
@@ -5695,10 +5770,10 @@ static void handle_cgi_request(struct mg_connection *conn, const char *prog)
 	}
 
 	/* Make sure child closes all pipe descriptors. It must dup them to 0,1 */
-	set_close_on_exec(fdin[0], conn);
-	set_close_on_exec(fdin[1], conn);
-	set_close_on_exec(fdout[0], conn);
-	set_close_on_exec(fdout[1], conn);
+	set_close_on_exec((SOCKET)fdin[0], conn);
+	set_close_on_exec((SOCKET)fdin[1], conn);
+	set_close_on_exec((SOCKET)fdout[0], conn);
+	set_close_on_exec((SOCKET)fdout[1], conn);
 
 	/* Parent closes only one side of the pipes.
 	 * If we don't mark them as closed, close() attempt before
@@ -5892,7 +5967,7 @@ static void mkcol(struct mg_connection *conn, const char *path)
 	if (conn == NULL)
 		return;
 
-	/* TODO: Check the send_http_error situations in this function */
+	/* TODO (mid): Check the send_http_error situations in this function */
 
 	memset(&de.file, 0, sizeof(de.file));
 	if (!mg_stat(conn, path, &de.file)) {
@@ -6099,7 +6174,7 @@ static void delete_file(struct mg_connection *conn, const char *path)
 
 	if (de.file.is_directory) {
 		remove_directory(conn, path);
-		/* TODO: remove_dir does not return success of the operation */
+		/* TODO (mid): remove_dir does not return success of the operation */
 		/* Assume delete is successful: Return 204 without content. */
 		send_http_error(conn, 204, "%s", "");
 		return;
@@ -6770,13 +6845,19 @@ static void read_websocket(struct mg_connection *conn,
 	char mem[4096];
 	char *data = mem;
 	unsigned char mop; /* mask flag and opcode */
+	double timeout = -1.0;
+
+	if (conn->ctx->config[WEBSOCKET_TIMEOUT]) {
+		timeout = atoi(conn->ctx->config[WEBSOCKET_TIMEOUT]) / 1000.0;
+	}
+	if ((timeout <= 0.0) && (conn->ctx->config[REQUEST_TIMEOUT])) {
+		timeout = atoi(conn->ctx->config[REQUEST_TIMEOUT]) / 1000.0;
+	}
 
 	mg_set_thread_name("wsock");
 
 	/* Loop continuously, reading messages from the socket, invoking the
 	 * callback, and waiting repeatedly until an error occurs. */
-	/* TODO: Investigate if this next line is needed */
-	/* assert(conn->content_len == 0); */
 	while (!conn->ctx->stop_flag) {
 		header_len = 0;
 		assert(conn->data_len >= conn->request_len);
@@ -6826,7 +6907,8 @@ static void read_websocket(struct mg_connection *conn,
 				memcpy(data, buf + header_len, len);
 				error = 0;
 				while (len < data_len) {
-					n = pull(NULL, conn, data + len, (int)(data_len - len));
+					n = pull(
+					    NULL, conn, data + len, (int)(data_len - len), timeout);
 					if (n <= 0) {
 						error = 1;
 						break;
@@ -6888,7 +6970,8 @@ static void read_websocket(struct mg_connection *conn,
 			if ((n = pull(NULL,
 			              conn,
 			              conn->buf + conn->data_len,
-			              conn->buf_size - conn->data_len)) <= 0) {
+			              conn->buf_size - conn->data_len,
+			              timeout)) <= 0) {
 				/* Error, no bytes read */
 				break;
 			}
@@ -7002,8 +7085,9 @@ handle_websocket_request(struct mg_connection *conn,
 	/* Step 4: Check if there is a responsible websocket handler. */
 	if (!is_callback_resource && !lua_websock) {
 		/* There is no callback, an Lua is not responsible either. */
-		/* Reply with a 404 Not Found or with nothing at all? TODO: check if
-		 * this is correct for websockets */
+		/* Reply with a 404 Not Found or with nothing at all?
+		 * TODO (mid): check the websocket standards, how to reply to
+		 * requests to invalid websocket addresses. */
 		send_http_error(conn, 404, "%s", "Not found");
 		return;
 	}
@@ -7124,7 +7208,7 @@ static uint32_t get_remote_ip(const struct mg_connection *conn)
 
 int mg_upload(struct mg_connection *conn, const char *destination_dir)
 {
-	/* TODO: set a timeout */
+	/* TODO (mid): set a timeout */
 	const char *content_type_header, *boundary_start, *sc;
 	char *s;
 	char buf[MG_BUF_LEN], path[PATH_MAX], tmp_path[PATH_MAX], fname[1024],
@@ -7770,7 +7854,8 @@ static void handle_request(struct mg_connection *conn)
 					/* Do nothing, callback has served the request */
 					discard_unread_request_data(conn);
 				} else {
-					/* TODO: what if the handler did NOT handle the request */
+					/* TODO (high): what if the handler did NOT handle the
+					 * request */
 					/* The last version did handle this as a file request, but
 					 * since a file request is not always a script resource,
 					 * the authorization check might be different */
@@ -7783,8 +7868,9 @@ static void handle_request(struct mg_connection *conn)
 					              &is_put_or_delete_request);
 					callback_handler = NULL;
 
-					/* TODO: for the moment, a goto is simpler than some
-					 * curious loop. */
+					/* TODO (very low): goto is deprecatedm but for the moment,
+					 * a goto is
+					 * simpler than some curious loop. */
 					/* The situation "callback does not handle the request"
 					 * needs to be reconsidered anyway. */
 					goto no_callback_resource;
@@ -7917,7 +8003,7 @@ static void handle_request(struct mg_connection *conn)
 		if (file.is_directory) {
 			if (substitute_index_file(conn, path, sizeof(path), &file)) {
 				/* 14.1. use a substitute file */
-				/* TODO: substitute index may be a script resource.
+				/* TODO (high): substitute index may be a script resource.
 				 * define what should be possible in this case. */
 			} else {
 				/* 14.2. no substitute file */
@@ -8003,36 +8089,12 @@ static void close_all_listening_sockets(struct mg_context *ctx)
 	ctx->listening_ports = NULL;
 }
 
-static int is_valid_port(unsigned int port) { return port < 0xffff; }
-
-#if defined(USE_IPV6)
-static int mg_inet_pton(int af, const char *src, void *dst)
-{
-	struct addrinfo hints, *res, *ressave;
-
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = af;
-
-	if (getaddrinfo(src, NULL, &hints, &res) != 0) {
-		/* bad src string or bad address family */
-		return 0;
-	}
-
-	ressave = res;
-
-	while (res) {
-		memcpy(dst, res->ai_addr, res->ai_addrlen);
-		res = res->ai_next;
-	}
-
-	freeaddrinfo(ressave);
-	return (ressave != NULL);
-}
-#endif
 
 /* Valid listening port specification is: [ip_address:]port[s]
- * Examples: 80, 443s, 127.0.0.1:3128, 1.2.3.4:8080s
- * TODO(lsm): add parsing of the IPv6 address */
+ * Examples for IPv4: 80, 443s, 127.0.0.1:3128, 1.2.3.4:8080s
+ * Examples for IPv6: [::]:80, [::1]:80,
+ *   [FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:443s
+ *   see https://tools.ietf.org/html/rfc3513#section-2.2 */
 static int parse_port_string(const struct vec *vec, struct socket *so)
 {
 	unsigned int a, b, c, d, port;
@@ -8055,15 +8117,14 @@ static int parse_port_string(const struct vec *vec, struct socket *so)
 		so->lsa.sin.sin_port = htons((uint16_t)port);
 #if defined(USE_IPV6)
 	} else if (sscanf(vec->ptr, "[%49[^]]]:%u%n", buf, &port, &len) == 2 &&
-	           mg_inet_pton(AF_INET6, buf, &so->lsa.sin6.sin6_addr)) {
-		/* IPv6 address, e.g. [3ffe:2a00:100:7031::1]:8080 */
-		so->lsa.sin6.sin6_family = AF_INET6;
+	           mg_inet_pton(
+	               AF_INET6, buf, &so->lsa.sin6, sizeof(so->lsa.sin6))) {
+		/* IPv6 address, examples: see above */
+		/* so->lsa.sin6.sin6_family = AF_INET6; already set by mg_inet_pton */
 		so->lsa.sin6.sin6_port = htons((uint16_t)port);
 #endif
 	} else if (sscanf(vec->ptr, "%u%n", &port, &len) == 1) {
 		/* If only port is specified, bind to IPv4, INADDR_ANY */
-		/* TODO: check -- so->lsa.sin6.sin6_family = AF_INET6; */
-		/* TODO: check -- so->lsa.sin6.sin6_port = htons((uint16_t) port); */
 		so->lsa.sin.sin_port = htons((uint16_t)port);
 	} else {
 		/* Parsing failure. Make port invalid. */
@@ -8151,7 +8212,7 @@ static int set_ports_option(struct mg_context *ctx)
 			                    : sizeof(so.lsa.sa)) != 0 ||
 			           listen(so.sock, SOMAXCONN) != 0 ||
 			           getsockname(so.sock, &(usa.sa), &len) != 0) {
-				/* TODO: rewrite this IF above */
+				/* TODO(mid): rewrite this IF above */
 				mg_cry(fc(ctx),
 				       "%s: cannot bind to %.*s: %d (%s)",
 				       __func__,
@@ -8645,13 +8706,20 @@ static void close_socket_gracefully(struct mg_connection *conn)
 	int n;
 #endif
 	struct linger linger;
+	double timeout = -1.0;
+
+	if (!conn) {
+		return;
+	}
+	if (conn->ctx->config[REQUEST_TIMEOUT]) {
+		timeout = atoi(conn->ctx->config[REQUEST_TIMEOUT]) / 1000.0;
+	}
 
 	/* Set linger option to avoid socket hanging out after close. This prevent
 	 * ephemeral port exhaust problem under high QPS. */
 	linger.l_onoff = 1;
 	linger.l_linger = 1;
-	if (!conn)
-		return;
+
 	if (setsockopt(conn->client.sock,
 	               SOL_SOCKET,
 	               SO_LINGER,
@@ -8674,7 +8742,7 @@ static void close_socket_gracefully(struct mg_connection *conn)
 	 * when server decides to close the connection; then when client
 	 * does recv() it gets no data back. */
 	do {
-		n = pull(NULL, conn, buf, sizeof(buf));
+		n = pull(NULL, conn, buf, sizeof(buf), timeout);
 	} while (n > 0);
 #endif
 
@@ -8918,7 +8986,7 @@ int mg_get_response(struct mg_connection *conn,
 		ret = getreq(conn, ebuf, ebuf_len, &err);
 		conn->ctx = octx;
 
-		/* TODO: Define proper return values - maybe return length?
+		/* TODO (mid): Define proper return values - maybe return length?
 		 * For the first test use <0 for error and >0 for OK */
 		return (ret == 0) ? -1 : +1;
 	}
@@ -9272,7 +9340,7 @@ static void *worker_thread_run(void *thread_func_param)
 			/* Fill in IP, port info early so even if SSL setup below fails,
 			 * error handler would have the corresponding info.
 			 * Thanks to Johannes Winkelmann for the patch.
-			 * TODO(lsm): Fix IPv6 case */
+			 * TODO(lsm, high): Fix IPv6 case */
 			conn->request_info.remote_port =
 			    ntohs(conn->client.rsa.sin.sin_port);
 			sockaddr_to_string(conn->request_info.remote_addr,
@@ -9414,15 +9482,13 @@ static void accept_new_connection(const struct socket *listener,
 			timeout = -1;
 		}
 
-		/* Set socket timeout to the given value, but not more than 10 seconds,
-		 * so the server can exit after 10 seconds if required. */
-		/* TODO: Currently values > 10 s are round up to the next 10 s.
-		 * For values like 24 s a socket timeout of 8 or 12 s would be better.
-		 */
-		if ((timeout > 0) && (timeout < 10000)) {
+		/* Set socket timeout to the given value, but not more than a
+		 * a certain limit (SOCKET_TIMEOUT_QUANTUM, default 10 seconds),
+		 * so the server can exit after that time if requested. */
+		if ((timeout > 0) && (timeout < SOCKET_TIMEOUT_QUANTUM)) {
 			set_sock_timeout(so.sock, timeout);
 		} else {
-			set_sock_timeout(so.sock, 10000);
+			set_sock_timeout(so.sock, SOCKET_TIMEOUT_QUANTUM);
 		}
 
 		produce_socket(ctx, &so);
@@ -9644,7 +9710,15 @@ static void get_system_name(char **sysName)
 	DWORD dwMinorVersion = 0;
 	DWORD dwBuild = 0;
 
+#ifdef _MSC_VER
+#pragma warning(push)
+// GetVersion was declared deprecated
+#pragma warning(disable : 4996)
+#endif
 	dwVersion = GetVersion();
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 	dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
 	dwMinorVersion = (DWORD)(HIBYTE(LOWORD(dwVersion)));
@@ -9687,8 +9761,7 @@ struct mg_context *mg_start(const struct mg_callbacks *callbacks,
 		InitializeCriticalSection(&global_log_file_lock);
 #endif /* _WIN32 && !__SYMBIAN32__ */
 
-	/* Allocate context and initialize reasonable general case defaults.
-	 * TODO(lsm): do proper error handling here. */
+	/* Allocate context and initialize reasonable general case defaults. */
 	if ((ctx = (struct mg_context *)mg_calloc(1, sizeof(*ctx))) == NULL) {
 		return NULL;
 	}
@@ -9703,7 +9776,8 @@ struct mg_context *mg_start(const struct mg_callbacks *callbacks,
 			return NULL;
 		}
 	} else {
-		/* TODO: check if sTlsKey is already initialized */
+		/* TODO (low): istead of sleeping, check if sTlsKey is already
+		 * initialized. */
 		mg_sleep(1);
 	}
 

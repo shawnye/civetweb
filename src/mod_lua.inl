@@ -1093,7 +1093,9 @@ void lua_civet_open_all_libs(lua_State *L)
 #ifdef USE_LUA_SQLITE3
 	{
 		extern int luaopen_lsqlite3(lua_State *);
-		luaopen_lsqlite3(L);
+		//luaopen_lsqlite3(L);
+		//call `require` programmatically
+		luaL_requiref (L, "sqlite3", luaopen_lsqlite3, 1);
 	}
 #endif
 #ifdef USE_LUA_LUAXML

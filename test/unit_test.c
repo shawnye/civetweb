@@ -39,20 +39,22 @@
 static int s_total_tests = 0;
 static int s_failed_tests = 0;
 
-#define FAIL(str, line) do {                     \
-    printf("Fail on line %d: [%s]\n", line, str);   \
-    s_failed_tests++; \
-} while (0)
+void check_func(int condition, const char * cond_txt, unsigned line)
+{
+    ++s_total_tests;
+    if (!condition) {
+        printf("Fail on line %d: [%s]\n", line, cond_txt);
+        ++s_failed_tests;
+    }
+}
 
 #define ASSERT(expr) do { \
-    s_total_tests++; \
-    if (!(expr)) FAIL(#expr, __LINE__); \
+   check_func(expr, #expr, __LINE__); \
 } while (0)
 
 #define REQUIRE(expr) do { \
-    s_total_tests++; \
+   check_func(expr, #expr, __LINE__); \
     if (!(expr)) { \
-        FAIL(#expr, __LINE__); \
         exit(EXIT_FAILURE); \
     } \
 } while (0)
@@ -401,6 +403,17 @@ static char *read_conn(struct mg_connection *conn, int *size) {
     return data;
 }
 
+extern unsigned long mg_memory_debug_blockCount;
+extern unsigned long mg_memory_debug_totalMemUsed;
+
+static void ut_mg_stop(struct mg_context *ctx) {
+    /* mg_stop for unit_test */
+    mg_stop(ctx);
+    ASSERT(mg_memory_debug_blockCount == 0);
+    ASSERT(mg_memory_debug_totalMemUsed == 0);
+    mg_sleep(31000); /* This is required to ensure the operating system already allows to use the port again */
+}
+
 static void test_mg_download(int use_ssl) {
 
     const char *test_data = "123456789A123456789B";
@@ -569,7 +582,7 @@ static void test_mg_download(int use_ssl) {
     mg_close_connection(conn);
 
     /* Stop the test server */
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 }
 
 static int websocket_data_handler(const struct mg_connection *conn, int flags, char *data, size_t data_len, void *cbdata)
@@ -626,7 +639,7 @@ static void test_mg_websocket_client_connect(int use_ssl) {
                              "/", "http://websocket.org", websocket_data_handler, NULL, NULL);
     ASSERT(conn != NULL);
 
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 }
 
 static int alloc_printf(char **buf, size_t size, char *fmt, ...) {
@@ -720,7 +733,7 @@ static void test_mg_upload(void) {
     mg_close_connection(conn);
 #endif
 
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 }
 
 static void test_base64_encode(void) {
@@ -887,7 +900,7 @@ static void test_request_replies(void) {
             tests[i].request)) != NULL);
         mg_close_connection(conn);
     }
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 
 #ifndef NO_SSL
     ASSERT((ctx = mg_start(&CALLBACKS, NULL, OPTIONS)) != NULL);
@@ -896,7 +909,7 @@ static void test_request_replies(void) {
             tests[i].request)) != NULL);
         mg_close_connection(conn);
     }
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 #endif
 }
 
@@ -945,7 +958,7 @@ static void test_request_handlers(void) {
     mg_sleep(1000);
     mg_close_connection(conn);
 
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 
 }
 
@@ -983,7 +996,7 @@ static void test_api_calls(void) {
     ASSERT((conn = mg_download("localhost", atoi(HTTP_PORT), 0,
         ebuf, sizeof(ebuf), "%s", request)) != NULL);
     mg_close_connection(conn);
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 }
 
 static void test_url_decode(void) {
@@ -1162,7 +1175,7 @@ int __cdecl main(void) {
     ctx = mg_start(NULL, NULL, OPTIONS);
     REQUIRE(ctx != NULL);
     mg_sleep(1000);
-    mg_stop(ctx);
+    ut_mg_stop(ctx);
 
     /* create test data */
     fetch_data = (char *) mg_malloc(fetch_data_size);

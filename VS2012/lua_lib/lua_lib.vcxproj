@@ -114,7 +114,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>LUA_COMPAT_5_1;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>LUA_COMPAT_5_1;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;DISABLE_INVALID_NUMBERS;WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -180,10 +180,21 @@
     <ClCompile Include="..\..\src\third_party\lsqlite3.c" />
     <ClCompile Include="..\..\src\third_party\LuaXML_lib.c" />
     <ClCompile Include="..\..\src\third_party\sqlite3.c" />
+    <ClCompile Include="..\..\src\third_party\ansicode.c" />
+
+    <ClCompile Include="..\..\src\third_party\cjson\strbuf.c" />
+    <ClCompile Include="..\..\src\third_party\cjson\g_fmt.c" />
+    <ClCompile Include="..\..\src\third_party\cjson\dtoa.c" />
+    <ClCompile Include="..\..\src\third_party\cjson\lua_cjson.c" />
+
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\third_party\lfs.h" />
     <ClInclude Include="..\..\src\third_party\sqlite3.h" />
+
+    <ClInclude Include="..\..\src\third_party\cjson\strbuf.h" />
+    <ClInclude Include="..\..\src\third_party\cjson\fpconv.h" />
+    <ClInclude Include="..\..\src\third_party\cjson\dtoa_config.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

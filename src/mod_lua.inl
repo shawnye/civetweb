@@ -1110,6 +1110,18 @@ void lua_civet_open_all_libs(lua_State *L)
 		luaopen_lfs(L);
 	}
 #endif
+#ifdef USE_LUA_ANSICODE
+	{
+		extern int luaopen_ansicode(lua_State *); 
+		luaL_requiref (L, "ansicode", luaopen_ansicode, 1);
+	}
+#endif
+#ifdef USE_LUA_CJSON
+	{
+		extern int luaopen_cjson(lua_State *);
+		luaL_requiref (L, "cjson", luaopen_cjson, 1); 
+	}
+#endif
 #ifdef USE_LUA_BINARY
     {
         /* TODO (low): Test if this could be used as a replacement for bit32.

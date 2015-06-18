@@ -474,7 +474,7 @@ CIVETWEB_API int mg_printf(struct mg_connection *,
     PRINTF_ARGS(2, 3);
 
 /* Send contents of the entire file together with HTTP headers. */
-CIVETWEB_API void mg_send_file(struct mg_connection *conn, const char *path);
+CIVETWEB_API void mg_send_file(struct mg_connection *conn, const char *path, const char *download_name);
 
 /* Read data from the remote end, return number of bytes read.
    Return:

@@ -494,10 +494,11 @@ static int lsp_send_file(lua_State *L)
 	struct mg_connection *conn =
 	    (struct mg_connection *)lua_touserdata(L, lua_upvalueindex(1));
 	int num_args = lua_gettop(L);
-	const char *filename = (num_args == 1) ? lua_tostring(L, 1) : NULL;
+	const char *filename = (num_args > 0) ? lua_tostring(L, 1) : NULL;
+	const char *downlaod_name = (num_args > 1) ? lua_tostring(L, 2) : NULL;
 
 	if (filename) {
-		mg_send_file(conn, filename);
+		mg_send_file(conn, filename,downlaod_name);
 	} else {
 		/* Syntax error */
 		return luaL_error(L, "invalid send_file() call");

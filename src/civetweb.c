@@ -5184,6 +5184,7 @@ static void fclose_on_exec(struct file *filep, struct mg_connection *conn)
 
 static void handle_static_file_request(struct mg_connection *conn,
                                        const char *path,
+    								   const char *download_name,
                                        struct file *filep)
 {
 	char date[64], lm[64], etag[64], range[64];
@@ -5278,6 +5279,35 @@ static void handle_static_file_request(struct mg_connection *conn,
 	gmt_time_string(lm, sizeof(lm), &filep->modification_time);
 	construct_etag(etag, sizeof(etag), filep);
 
+	if(download_name != NULL) {
+		(void)mg_printf(conn,
+	                "HTTP/1.1 %d %s\r\n"
+	                "%s%s%s"
+	                "Date: %s\r\n"
+	                "Last-Modified: %s\r\n"
+	                "Etag: %s\r\n"
+					"Content-Disposition: attachment; filename=%s\r\n"
+	                "Content-Type: %.*s\r\n" 
+	                "Content-Length: %" INT64_FMT "\r\n"
+	                "Connection: %s\r\n"
+	                "Accept-Ranges: bytes\r\n"
+	                "%s%s\r\n",
+	                conn->status_code,
+	                msg,
+	                cors1,
+	                cors2,
+	                cors3,
+	                date,
+	                lm,
+	                etag,
+					download_name,
+	                (int)mime_vec.len, 
+	                mime_vec.ptr,
+	                cl,
+	                suggest_connection_header(conn),
+	                range,
+	                encoding);
+	}else{
 	(void)mg_printf(conn,
 	                "HTTP/1.1 %d %s\r\n"
 	                "%s%s%s"
@@ -5302,7 +5332,9 @@ static void handle_static_file_request(struct mg_connection *conn,
 	                cl,
 	                suggest_connection_header(conn),
 	                range,
-	                encoding);
+	                encoding);		
+	}
+
 
 	if (strcmp(conn->request_info.request_method, "HEAD") != 0) {
 		send_file_data(conn, filep, r1, cl);
@@ -5310,7 +5342,7 @@ static void handle_static_file_request(struct mg_connection *conn,
 	mg_fclose(filep);
 }
 
-void mg_send_file(struct mg_connection *conn, const char *path)
+void mg_send_file(struct mg_connection *conn, const char *path, const char *download_name)
 {
 	struct file file = STRUCT_FILE_INITIALIZER;
 	if (mg_stat(conn, path, &file)) {
@@ -5325,7 +5357,7 @@ void mg_send_file(struct mg_connection *conn, const char *path)
 				    conn, 403, "%s", "Error: Directory listing denied");
 			}
 		} else {
-			handle_static_file_request(conn, path, &file);
+			handle_static_file_request(conn, path,download_name, &file);
 		}
 	} else {
 		send_http_error(conn, 404, "%s", "Error: File not found");
@@ -8150,7 +8182,7 @@ static void handle_file_based_request(struct mg_connection *conn,
 		/* Send 304 "Not Modified" - this must not send any body data */
 		send_http_error(conn, 304, "%s", "");
 	} else {
-		handle_static_file_request(conn, path, file);
+		handle_static_file_request(conn, path, NULL, file);
 	}
 }
 

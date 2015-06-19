@@ -647,7 +647,7 @@ static int lsp_url_encode(lua_State *L)
 	int num_args = lua_gettop(L);
 	const char *text;
 	size_t text_len;
-	char dst[512];
+	char dst[2048];
 
 	if (num_args == 1) {
 		text = lua_tolstring(L, 1, &text_len);
@@ -671,7 +671,7 @@ static int lsp_url_decode(lua_State *L)
 	const char *text;
 	size_t text_len;
 	int is_form;
-	char dst[512];
+	char dst[2048];
 
 	if (num_args == 1 || (num_args == 2 && lua_isboolean(L, 2))) {
 		text = lua_tolstring(L, 1, &text_len);

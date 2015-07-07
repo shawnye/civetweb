@@ -1,7 +1,11 @@
 Enhanced Civetweb with built-in module:
-ansicode: support convertion between ansi encoding &lt;--&gt; unicode(utf8,utf16) encoding 
-cjson: fast json encoding and decoding
-lua-zlib: zlib support
+
+- ansicode: support convertion between ansi encoding &lt;--&gt; unicode(utf8,utf16) encoding 
+
+- cjson: fast json encoding and decoding
+
+- lua-zlib: zlib support
+
 and smaller tunes.
 
 ![Civetweb](https://raw.github.com/bel2125/civetweb/master/resources/civetweb_64x64.png "Civetweb") Civetweb

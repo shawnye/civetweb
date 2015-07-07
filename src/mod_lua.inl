@@ -647,7 +647,7 @@ static int lsp_url_encode(lua_State *L)
 	int num_args = lua_gettop(L);
 	const char *text;
 	size_t text_len;
-	char dst[2048];
+	char dst[20480];
 
 	if (num_args == 1) {
 		text = lua_tolstring(L, 1, &text_len);
@@ -671,7 +671,7 @@ static int lsp_url_decode(lua_State *L)
 	const char *text;
 	size_t text_len;
 	int is_form;
-	char dst[2048];
+	char dst[20480];
 
 	if (num_args == 1 || (num_args == 2 && lua_isboolean(L, 2))) {
 		text = lua_tolstring(L, 1, &text_len);
@@ -1123,6 +1123,13 @@ void lua_civet_open_all_libs(lua_State *L)
 		luaL_requiref (L, "cjson", luaopen_cjson, 1); 
 	}
 #endif
+#ifdef USE_LUA_ZLIB
+	{
+		extern int luaopen_zlib(lua_State *);
+		luaL_requiref (L, "zlib", luaopen_zlib, 1); 
+	}
+#endif
+
 #ifdef USE_LUA_BINARY
     {
         /* TODO (low): Test if this could be used as a replacement for bit32.

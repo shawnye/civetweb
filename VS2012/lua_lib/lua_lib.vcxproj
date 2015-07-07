@@ -85,7 +85,7 @@
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>LUA_COMPAT_ALL;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.1\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -99,7 +99,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>LUA_COMPAT_ALL;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.1\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -115,7 +115,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>LUA_COMPAT_5_1;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;DISABLE_INVALID_NUMBERS;WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.1\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -133,7 +133,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>LUA_COMPAT_ALL;THREADSAFE=1;SQLITE_ENABLE_FTS3;SQLITE_ENABLE_FTS3_PARENTHESIS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\third_party\lua-5.3.1\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -144,39 +144,39 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\third_party\lfs.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lapi.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lauxlib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lbaselib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lbitlib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lcode.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lcorolib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lctype.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ldblib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ldebug.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ldo.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ldump.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lfunc.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lgc.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\linit.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\liolib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\llex.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lmathlib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lmem.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\loadlib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lobject.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lopcodes.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\loslib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lparser.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lstate.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lstring.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lstrlib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ltable.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ltablib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\ltm.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lundump.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lutf8lib.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lvm.c" />
-    <ClCompile Include="..\..\src\third_party\lua-5.3.0\src\lzio.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lapi.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lauxlib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lbaselib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lbitlib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lcode.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lcorolib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lctype.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ldblib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ldebug.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ldo.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ldump.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lfunc.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lgc.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\linit.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\liolib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\llex.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lmathlib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lmem.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\loadlib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lobject.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lopcodes.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\loslib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lparser.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lstate.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lstring.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lstrlib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ltable.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ltablib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\ltm.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lundump.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lutf8lib.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lvm.c" />
+    <ClCompile Include="..\..\src\third_party\lua-5.3.1\src\lzio.c" />
     <ClCompile Include="..\..\src\third_party\lsqlite3.c" />
     <ClCompile Include="..\..\src\third_party\LuaXML_lib.c" />
     <ClCompile Include="..\..\src\third_party\sqlite3.c" />
@@ -187,6 +187,24 @@
     <ClCompile Include="..\..\src\third_party\cjson\dtoa.c" />
     <ClCompile Include="..\..\src\third_party\cjson\lua_cjson.c" />
 
+<ClCompile Include="..\..\src\third_party\zlib\adler32.c" />
+<ClCompile Include="..\..\src\third_party\zlib\compress.c" />
+<ClCompile Include="..\..\src\third_party\zlib\crc32.c" />
+<ClCompile Include="..\..\src\third_party\zlib\deflate.c" />
+<ClCompile Include="..\..\src\third_party\zlib\gzclose.c" />
+<ClCompile Include="..\..\src\third_party\zlib\gzlib.c" />
+<ClCompile Include="..\..\src\third_party\zlib\gzread.c" />
+<ClCompile Include="..\..\src\third_party\zlib\gzwrite.c" />
+<ClCompile Include="..\..\src\third_party\zlib\infback.c" />
+<ClCompile Include="..\..\src\third_party\zlib\inffast.c" />
+<ClCompile Include="..\..\src\third_party\zlib\inflate.c" />
+<ClCompile Include="..\..\src\third_party\zlib\inftrees.c" />
+<ClCompile Include="..\..\src\third_party\zlib\trees.c" />
+<ClCompile Include="..\..\src\third_party\zlib\uncompr.c" />
+<ClCompile Include="..\..\src\third_party\zlib\zutil.c" />
+
+<ClCompile Include="..\..\src\third_party\lua_zlib.c" />
+
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\third_party\lfs.h" />
@@ -195,6 +213,19 @@
     <ClInclude Include="..\..\src\third_party\cjson\strbuf.h" />
     <ClInclude Include="..\..\src\third_party\cjson\fpconv.h" />
     <ClInclude Include="..\..\src\third_party\cjson\dtoa_config.h" />
+
+<ClInclude Include="..\..\src\third_party\zlib\crc32.h" />
+<ClInclude Include="..\..\src\third_party\zlib\deflate.h" />
+<ClInclude Include="..\..\src\third_party\zlib\gzguts.h" />
+<ClInclude Include="..\..\src\third_party\zlib\inffast.h" />
+<ClInclude Include="..\..\src\third_party\zlib\inffixed.h" />
+<ClInclude Include="..\..\src\third_party\zlib\inflate.h" />
+<ClInclude Include="..\..\src\third_party\zlib\inftrees.h" />
+<ClInclude Include="..\..\src\third_party\zlib\trees.h" />
+<ClInclude Include="..\..\src\third_party\zlib\zconf.h" />
+<ClInclude Include="..\..\src\third_party\zlib\zlib.h" />
+<ClInclude Include="..\..\src\third_party\zlib\zutil.h" />
+
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

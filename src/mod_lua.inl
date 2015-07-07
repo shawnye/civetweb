@@ -8,9 +8,9 @@ mmap(void *addr, int64_t len, int prot, int flags, int fd, int offset)
 {
 	/* TODO (low): This is an incomplete implementation of mmap for windows.
 	 * Currently it is sufficient, but there are a lot of unused parameters.
-     * Better use a function "mg_map" which only has the required parameters,
-     * and implement it using mmap in Linux and CreateFileMapping in Windows.
-     * Noone should expect a full mmap for Windows here.
+	 * Better use a function "mg_map" which only has the required parameters,
+	 * and implement it using mmap in Linux and CreateFileMapping in Windows.
+	 * Noone should expect a full mmap for Windows here.
 	 */
 	HANDLE fh = (HANDLE)_get_osfhandle(fd);
 	HANDLE mh = CreateFileMapping(fh, 0, PAGE_READONLY, 0, 0, 0);
@@ -647,7 +647,7 @@ static int lsp_url_encode(lua_State *L)
 	int num_args = lua_gettop(L);
 	const char *text;
 	size_t text_len;
-	char dst[20480];
+	char dst[20000];
 
 	if (num_args == 1) {
 		text = lua_tolstring(L, 1, &text_len);
@@ -671,7 +671,7 @@ static int lsp_url_decode(lua_State *L)
 	const char *text;
 	size_t text_len;
 	int is_form;
-	char dst[20480];
+	char dst[20000];
 
 	if (num_args == 1 || (num_args == 2 && lua_isboolean(L, 2))) {
 		text = lua_tolstring(L, 1, &text_len);
@@ -1094,9 +1094,7 @@ void lua_civet_open_all_libs(lua_State *L)
 #ifdef USE_LUA_SQLITE3
 	{
 		extern int luaopen_lsqlite3(lua_State *);
-		//luaopen_lsqlite3(L);
-		//call `require` programmatically
-		luaL_requiref (L, "sqlite3", luaopen_lsqlite3, 1);
+		luaopen_lsqlite3(L);
 	}
 #endif
 #ifdef USE_LUA_LUAXML
@@ -1129,16 +1127,15 @@ void lua_civet_open_all_libs(lua_State *L)
 		luaL_requiref (L, "zlib", luaopen_zlib, 1); 
 	}
 #endif
-
 #ifdef USE_LUA_BINARY
-    {
-        /* TODO (low): Test if this could be used as a replacement for bit32.
-         * Check again with Lua 5.3 later. */
+	{
+		/* TODO (low): Test if this could be used as a replacement for bit32.
+		 * Check again with Lua 5.3 later. */
 		extern int luaopen_binary(lua_State *);
 
-        luaL_requiref(L, "binary", luaopen_binary, 1);
-        lua_pop(L, 1);
-    }
+		luaL_requiref(L, "binary", luaopen_binary, 1);
+		lua_pop(L, 1);
+	}
 #endif
 }
 
@@ -1594,6 +1591,8 @@ static void lua_websocket_close(struct mg_connection *conn, void *ws_arg)
 	/* TODO: Delete lua_websock_data and remove it from the websocket list.
 	   This must only be done, when all connections are closed, and all
 	   asynchronous operations and timers are completed/expired. */
+	(void)shared_websock_list; /* shared_websock_list unused (see open TODO) */
+
 	(void)pthread_mutex_unlock(&ws->ws_mutex);
 }
 #endif
